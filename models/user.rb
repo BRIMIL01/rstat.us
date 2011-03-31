@@ -11,6 +11,7 @@ class User
 
   key :username, String, :required => true
   key :perishable_token, String
+  key :admin, Boolean, :default => false
 
   # eff you mongo_mapper.
   key :email, String #, :unique => true, :allow_nil => true
