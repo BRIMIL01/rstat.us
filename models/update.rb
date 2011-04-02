@@ -1,5 +1,6 @@
 class Update
   require 'cgi'
+  require "#{File.dirname(__FILE__)}/../grammars/update_parser.kpeg"
   include MongoMapper::Document
   include MongoMapperExt::Filter
 
@@ -76,24 +77,29 @@ class Update
   
   # Generate and store the html
   def generate_html
-    out = CGI.escapeHTML(text)
-
-    # we let almost anything be in a username, except those that mess with urls.
-    # but you can't end in a .:;, or !
-    # also ignore container chars [] () "" '' {}
-    # XXX: the _correct_ solution will be to use an email validator
-    out.gsub!(/(^|[ \t\n\r\f"'\(\[{]+)@([^ \t\n\r\f&?=@%\/\#]*[^ \t\n\r\f&?=@%\/\#.!:;,"'\]}\)])/) do |match|
-      if u = User.first(:username => /^#{$2}$/i)
-        "#{$1}<a href='/users/#{u.username}'>@#{$2}</a>"
-      else
-        match
-      end
+    parser = UpdateParser.new(CGI.escapeHTML(text))
+    if parser.parse
+      self.html = parser.processed
+      self.save
     end
-    out.gsub!(/(http[s]?:\/\/\S+[a-zA-Z0-9\/}])/, "<a href='\\1'>\\1</a>")
-    out.gsub!(/(^|\s+)#(\w+)/) do |match|
-      "#{$1}<a href='/hashtags/#{$2}'>##{$2}</a>"
-    end
-    self.html = out
+    # out = CGI.escapeHTML(text)
+    # 
+    # # we let almost anything be in a username, except those that mess with urls.
+    # # but you can't end in a .:;, or !
+    # # also ignore container chars [] () "" '' {}
+    # # XXX: the _correct_ solution will be to use an email validator
+    # out.gsub!(/(^|[ \t\n\r\f"'\(\[{]+)@([^ \t\n\r\f&?=@%\/\#]*[^ \t\n\r\f&?=@%\/\#.!:;,"'\]}\)])/) do |match|
+    #   if u = User.first(:username => /^#{$2}$/i)
+    #     "#{$1}<a href='/users/#{u.username}'>@#{$2}</a>"
+    #   else
+    #     match
+    #   end
+    # end
+    # out.gsub!(/(http[s]?:\/\/\S+[a-zA-Z0-9\/}])/, "<a href='\\1'>\\1</a>")
+    # out.gsub!(/(^|\s+)#(\w+)/) do |match|
+    #   "#{$1}<a href='/hashtags/#{$2}'>##{$2}</a>"
+    # end
+    # self.html = out
   end
 
   # If a user has twitter or facebook enabled on their account and they checked
