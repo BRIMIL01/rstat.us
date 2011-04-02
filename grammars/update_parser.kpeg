@@ -1,0 +1,60 @@
+%% name = UpdateParser
+
+%% {
+  require '../models/user'
+  
+  def valid_user(userame)
+    !User.first(:username => username).nil?
+  end
+  
+  attr_accessor :tags
+  attr_accessor :processed
+}
+
+word = < /[A-Za-z0-9_+ ]+/ > { text }
+space = " "
+url = < /(http[s]?:\/\/\S+[a-zA-Z0-9\/}])/ > { "<a href='#{text}'>#{text}</a> }
+allowed_username_chars = < /[A-Za-z0-9-_$.+!*]/ > { text }
+allowed_username_ending = < /[A-Za-z0-9-_$.+*]/ > { text }
+
+known_username =  allowed_username_chars:u* allowed_username_ending:e &{ valid_user("#{u}#{e}") }
+unknown_username = allowed_username_chars:u* allowed_username_ending:e { "#{u}#{e}" }
+
+username = "@" known_username:u { "<a href='/users/#{u}'>@#{u}</a>" }
+         | "@" unknown_username:u { "@#{u}" }
+
+
+tag_name = word:w { @tags << t; w }
+tag = "#" tag_name:t { "<a href='/hashtags/#{t}'>##{t}</a>" }
+
+update = tag:t update:u { "#{t}#{u}" }
+       | username:n update:u { "#{n}#{u}" }
+       | word:w update:u { "#{w}#{u}" }
+       | space:s update:u { "#{s}#{u}" }
+       | url:url update:u { "#{url}#{u}" }
+       | word:w { w }
+       | space { " " }
+       | url:u { u }
+       | username:u { u }
+       | tag:t { t }
+
+root = update:u { @processed = u }
+
+# out = CGI.escapeHTML(text)
+
+# we let almost anything be in a username, except those that mess with urls.
+# but you can't end in a .:;, or !
+# also ignore container chars [] () "" '' {}
+# XXX: the _correct_ solution will be to use an email validator
+# out.gsub!(/(^|[ \t\n\r\f"'\(\[{]+)@([^ \t\n\r\f&?=@%\/\#]*[^ \t\n\r\f&?=@%\/\#.!:;,"'\]}\)])/) do |match|
+#   if u = User.first(:username => /^#{$2}$/i)
+#     "#{$1}<a href='/users/#{u.username}'>@#{$2}</a>"
+#   else
+#     match
+#   end
+# end
+# out.gsub!(/(http[s]?:\/\/\S+[a-zA-Z0-9\/}])/, "<a href='\\1'>\\1</a>")
+# out.gsub!(/(^|\s+)#(\w+)/) do |match|
+#   "#{$1}<a href='/hashtags/#{$2}'>##{$2}</a>"
+# end
+# self.html = out
