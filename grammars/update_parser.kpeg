@@ -1,7 +1,7 @@
 %% name = UpdateParser
 
 %% {
-  require "#{File.dirname(__FILE__)}/../models/user"
+  #require "#{File.dirname(__FILE__)}/../models/user"
   
 	def initialize(str, debug=false)
     setup_parser(str, debug)
@@ -17,9 +17,10 @@
   attr_accessor :processed
 }
 
-word = < /\w+/ > { text }
-allowed_punc = < /[.,\-&^%$@#!~`+=-] / > { text }
-space = " "
+single_at = "# "
+single_pound = "@ "
+allowed_chars = < /[A-Za-z0-9.,\-&^%$?!~`+= ]/ > { text }
+allowed = < (single_at | single_pound | allowed)+ > { text }
 url = < /(http[s]?:\/\/\S+[a-zA-Z0-9\/}])/ > { "<a href='#{text}'>#{text}</a>" }
 allowed_username_chars = < /[A-Za-z0-9\-_$.+!*]/ > { text }
 allowed_username_ending = < /[A-Za-z0-9\-_$.+*]/ > { text }
@@ -30,21 +31,16 @@ unknown_username = allowed_username_chars:u* allowed_username_ending:e { "#{u}#{
 username = "@" known_username:u { "<a href='/users/#{u}'>@#{u}</a>" }
          | "@" unknown_username:u { "@#{u}" }
 
-
-tag_name = word:w { @tags << w; w }
+tag_name = allowed:a { @tags << a; a }
 tag = "#" tag_name:t { "<a href='/hashtags/#{t}'>##{t}</a>" }
 
 update = tag:t update:u { "#{t}#{u}" }
        | username:n update:u { "#{n}#{u}" }
-       | word:w update:u { "#{w}#{u}" }
-       | space:s update:u { " #{u}" }
-       | url:url update:u { "#{url}#{u}" }
-       | allowed_punc:p update:u { "#{p}#{u}" }
-       | word:w { w }
-       | space { " " }
-       | url:u { u }
+       # | url:url update:u { "#{url}#{u}" }
+       | allowed:a update:u { "#{a}#{u}" }
+       # | url:u { u }
        | username:u { u }
        | tag:t { t }
-       | allowed_punc:p { p }
+       | allowed:a { a }
 
 root = update:u { @processed = u }

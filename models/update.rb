@@ -76,7 +76,7 @@ class Update
 
   # Generate and store the html
   def generate_html
-    parser = UpdateParser.new(CGI.escapeHTML(text))
+    parser = UpdateParser.new(CGI.escapeHTML(self.text))
     if parser.parse
       self.html = parser.processed
       self.save
