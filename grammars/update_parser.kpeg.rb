@@ -3,7 +3,7 @@ require 'kpeg/compiled_parser'
 class UpdateParser < KPeg::CompiledParser
 
 
-  require "#{File.dirname(__FILE__)}/../models/user"
+  #require "#{File.dirname(__FILE__)}/../models/user"
   
 	def initialize(str, debug=false)
     setup_parser(str, debug)
@@ -20,13 +20,27 @@ class UpdateParser < KPeg::CompiledParser
 
 
 
-  # word = < /\w+/ > { text }
-  def _word
+  # single_at = "# "
+  def _single_at
+    _tmp = match_string("# ")
+    set_failed_rule :_single_at unless _tmp
+    return _tmp
+  end
+
+  # single_pound = "@ "
+  def _single_pound
+    _tmp = match_string("@ ")
+    set_failed_rule :_single_pound unless _tmp
+    return _tmp
+  end
+
+  # allowed_chars = < /[A-Za-z0-9.,\-&^%$?!~`+= ]/ > { text }
+  def _allowed_chars
 
     _save = self.pos
     while true # sequence
     _text_start = self.pos
-    _tmp = scan(/\A(?-mix:\w+)/)
+    _tmp = scan(/\A(?-mix:[A-Za-z0-9.,\-&^%$?!~`+= ])/)
     if _tmp
       text = get_text(_text_start)
     end
@@ -42,17 +56,55 @@ class UpdateParser < KPeg::CompiledParser
     break
     end # end sequence
 
-    set_failed_rule :_word unless _tmp
+    set_failed_rule :_allowed_chars unless _tmp
     return _tmp
   end
 
-  # allowed_punc = < /[.,\-&^%$@#!~`+=-] / > { text }
-  def _allowed_punc
+  # allowed = < (single_at | single_pound | allowed)+ > { text }
+  def _allowed
 
     _save = self.pos
     while true # sequence
     _text_start = self.pos
-    _tmp = scan(/\A(?-mix:[.,\-&^%$@#!~`+=-] )/)
+    _save1 = self.pos
+
+    _save2 = self.pos
+    while true # choice
+    _tmp = apply(:_single_at)
+    break if _tmp
+    self.pos = _save2
+    _tmp = apply(:_single_pound)
+    break if _tmp
+    self.pos = _save2
+    _tmp = apply(:_allowed)
+    break if _tmp
+    self.pos = _save2
+    break
+    end # end choice
+
+    if _tmp
+      while true
+    
+    _save3 = self.pos
+    while true # choice
+    _tmp = apply(:_single_at)
+    break if _tmp
+    self.pos = _save3
+    _tmp = apply(:_single_pound)
+    break if _tmp
+    self.pos = _save3
+    _tmp = apply(:_allowed)
+    break if _tmp
+    self.pos = _save3
+    break
+    end # end choice
+
+        break unless _tmp
+      end
+      _tmp = true
+    else
+      self.pos = _save1
+    end
     if _tmp
       text = get_text(_text_start)
     end
@@ -68,14 +120,7 @@ class UpdateParser < KPeg::CompiledParser
     break
     end # end sequence
 
-    set_failed_rule :_allowed_punc unless _tmp
-    return _tmp
-  end
-
-  # space = " "
-  def _space
-    _tmp = match_string(" ")
-    set_failed_rule :_space unless _tmp
+    set_failed_rule :_allowed unless _tmp
     return _tmp
   end
 
@@ -284,18 +329,18 @@ class UpdateParser < KPeg::CompiledParser
     return _tmp
   end
 
-  # tag_name = word:w { @tags << w; w }
+  # tag_name = allowed:a { @tags << a; a }
   def _tag_name
 
     _save = self.pos
     while true # sequence
-    _tmp = apply(:_word)
-    w = @result
+    _tmp = apply(:_allowed)
+    a = @result
     unless _tmp
       self.pos = _save
       break
     end
-    @result = begin;  @tags << w; w ; end
+    @result = begin;  @tags << a; a ; end
     _tmp = true
     unless _tmp
       self.pos = _save
@@ -335,7 +380,7 @@ class UpdateParser < KPeg::CompiledParser
     return _tmp
   end
 
-  # update = (tag:t update:u { "#{t}#{u}" } | username:n update:u { "#{n}#{u}" } | word:w update:u { "#{w}#{u}" } | space:s update:u { " #{u}" } | url:url update:u { "#{url}#{u}" } | allowed_punc:p update:u { "#{p}#{u}" } | word:w { w } | space { " " } | url:u { u } | username:u { u } | tag:t { t } | allowed_punc:p { p })
+  # update = (tag:t update:u { "#{t}#{u}" } | username:n update:u { "#{n}#{u}" } | allowed:a update:u { "#{a}#{u}" } | username:u { u } | tag:t { t } | allowed:a { a })
   def _update
 
     _save = self.pos
@@ -393,8 +438,8 @@ class UpdateParser < KPeg::CompiledParser
 
     _save3 = self.pos
     while true # sequence
-    _tmp = apply(:_word)
-    w = @result
+    _tmp = apply(:_allowed)
+    a = @result
     unless _tmp
       self.pos = _save3
       break
@@ -405,7 +450,7 @@ class UpdateParser < KPeg::CompiledParser
       self.pos = _save3
       break
     end
-    @result = begin;  "#{w}#{u}" ; end
+    @result = begin;  "#{a}#{u}" ; end
     _tmp = true
     unless _tmp
       self.pos = _save3
@@ -418,19 +463,13 @@ class UpdateParser < KPeg::CompiledParser
 
     _save4 = self.pos
     while true # sequence
-    _tmp = apply(:_space)
-    s = @result
-    unless _tmp
-      self.pos = _save4
-      break
-    end
-    _tmp = apply(:_update)
+    _tmp = apply(:_username)
     u = @result
     unless _tmp
       self.pos = _save4
       break
     end
-    @result = begin;  " #{u}" ; end
+    @result = begin;  u ; end
     _tmp = true
     unless _tmp
       self.pos = _save4
@@ -443,19 +482,13 @@ class UpdateParser < KPeg::CompiledParser
 
     _save5 = self.pos
     while true # sequence
-    _tmp = apply(:_url)
-    url = @result
+    _tmp = apply(:_tag)
+    t = @result
     unless _tmp
       self.pos = _save5
       break
     end
-    _tmp = apply(:_update)
-    u = @result
-    unless _tmp
-      self.pos = _save5
-      break
-    end
-    @result = begin;  "#{url}#{u}" ; end
+    @result = begin;  t ; end
     _tmp = true
     unless _tmp
       self.pos = _save5
@@ -468,135 +501,16 @@ class UpdateParser < KPeg::CompiledParser
 
     _save6 = self.pos
     while true # sequence
-    _tmp = apply(:_allowed_punc)
-    p = @result
+    _tmp = apply(:_allowed)
+    a = @result
     unless _tmp
       self.pos = _save6
       break
     end
-    _tmp = apply(:_update)
-    u = @result
-    unless _tmp
-      self.pos = _save6
-      break
-    end
-    @result = begin;  "#{p}#{u}" ; end
+    @result = begin;  a ; end
     _tmp = true
     unless _tmp
       self.pos = _save6
-    end
-    break
-    end # end sequence
-
-    break if _tmp
-    self.pos = _save
-
-    _save7 = self.pos
-    while true # sequence
-    _tmp = apply(:_word)
-    w = @result
-    unless _tmp
-      self.pos = _save7
-      break
-    end
-    @result = begin;  w ; end
-    _tmp = true
-    unless _tmp
-      self.pos = _save7
-    end
-    break
-    end # end sequence
-
-    break if _tmp
-    self.pos = _save
-
-    _save8 = self.pos
-    while true # sequence
-    _tmp = apply(:_space)
-    unless _tmp
-      self.pos = _save8
-      break
-    end
-    @result = begin;  " " ; end
-    _tmp = true
-    unless _tmp
-      self.pos = _save8
-    end
-    break
-    end # end sequence
-
-    break if _tmp
-    self.pos = _save
-
-    _save9 = self.pos
-    while true # sequence
-    _tmp = apply(:_url)
-    u = @result
-    unless _tmp
-      self.pos = _save9
-      break
-    end
-    @result = begin;  u ; end
-    _tmp = true
-    unless _tmp
-      self.pos = _save9
-    end
-    break
-    end # end sequence
-
-    break if _tmp
-    self.pos = _save
-
-    _save10 = self.pos
-    while true # sequence
-    _tmp = apply(:_username)
-    u = @result
-    unless _tmp
-      self.pos = _save10
-      break
-    end
-    @result = begin;  u ; end
-    _tmp = true
-    unless _tmp
-      self.pos = _save10
-    end
-    break
-    end # end sequence
-
-    break if _tmp
-    self.pos = _save
-
-    _save11 = self.pos
-    while true # sequence
-    _tmp = apply(:_tag)
-    t = @result
-    unless _tmp
-      self.pos = _save11
-      break
-    end
-    @result = begin;  t ; end
-    _tmp = true
-    unless _tmp
-      self.pos = _save11
-    end
-    break
-    end # end sequence
-
-    break if _tmp
-    self.pos = _save
-
-    _save12 = self.pos
-    while true # sequence
-    _tmp = apply(:_allowed_punc)
-    p = @result
-    unless _tmp
-      self.pos = _save12
-      break
-    end
-    @result = begin;  p ; end
-    _tmp = true
-    unless _tmp
-      self.pos = _save12
     end
     break
     end # end sequence
@@ -634,17 +548,18 @@ class UpdateParser < KPeg::CompiledParser
   end
 
   Rules = {}
-  Rules[:_word] = rule_info("word", "< /\\w+/ > { text }")
-  Rules[:_allowed_punc] = rule_info("allowed_punc", "< /[.,\\-&^%$@\#!~`+=-] / > { text }")
-  Rules[:_space] = rule_info("space", "\" \"")
+  Rules[:_single_at] = rule_info("single_at", "\"\# \"")
+  Rules[:_single_pound] = rule_info("single_pound", "\"@ \"")
+  Rules[:_allowed_chars] = rule_info("allowed_chars", "< /[A-Za-z0-9.,\\-&^%$?!~`+= ]/ > { text }")
+  Rules[:_allowed] = rule_info("allowed", "< (single_at | single_pound | allowed)+ > { text }")
   Rules[:_url] = rule_info("url", "< /(http[s]?:\\/\\/\\S+[a-zA-Z0-9\\/}])/ > { \"<a href='\#{text}'>\#{text}</a>\" }")
   Rules[:_allowed_username_chars] = rule_info("allowed_username_chars", "< /[A-Za-z0-9\\-_$.+!*]/ > { text }")
   Rules[:_allowed_username_ending] = rule_info("allowed_username_ending", "< /[A-Za-z0-9\\-_$.+*]/ > { text }")
   Rules[:_known_username] = rule_info("known_username", "allowed_username_chars:u* allowed_username_ending:e &{ valid_user(\"\#{u}\#{e}\") }")
   Rules[:_unknown_username] = rule_info("unknown_username", "allowed_username_chars:u* allowed_username_ending:e { \"\#{u}\#{e}\" }")
   Rules[:_username] = rule_info("username", "(\"@\" known_username:u { \"<a href='/users/\#{u}'>@\#{u}</a>\" } | \"@\" unknown_username:u { \"@\#{u}\" })")
-  Rules[:_tag_name] = rule_info("tag_name", "word:w { @tags << w; w }")
+  Rules[:_tag_name] = rule_info("tag_name", "allowed:a { @tags << a; a }")
   Rules[:_tag] = rule_info("tag", "\"\#\" tag_name:t { \"<a href='/hashtags/\#{t}'>\#\#{t}</a>\" }")
-  Rules[:_update] = rule_info("update", "(tag:t update:u { \"\#{t}\#{u}\" } | username:n update:u { \"\#{n}\#{u}\" } | word:w update:u { \"\#{w}\#{u}\" } | space:s update:u { \" \#{u}\" } | url:url update:u { \"\#{url}\#{u}\" } | allowed_punc:p update:u { \"\#{p}\#{u}\" } | word:w { w } | space { \" \" } | url:u { u } | username:u { u } | tag:t { t } | allowed_punc:p { p })")
+  Rules[:_update] = rule_info("update", "(tag:t update:u { \"\#{t}\#{u}\" } | username:n update:u { \"\#{n}\#{u}\" } | allowed:a update:u { \"\#{a}\#{u}\" } | username:u { u } | tag:t { t } | allowed:a { a })")
   Rules[:_root] = rule_info("root", "update:u { @processed = u }")
 end
