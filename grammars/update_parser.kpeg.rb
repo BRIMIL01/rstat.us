@@ -11,7 +11,8 @@ class UpdateParser < KPeg::CompiledParser
   end
 
   def valid_user(username)
-    !User.first(:username => username).nil?
+    false
+    #!User.first(:username => username).nil?
   end
 
   attr_accessor :tags
