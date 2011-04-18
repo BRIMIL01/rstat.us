@@ -3,6 +3,7 @@ require "#{File.dirname(__FILE__)}/../grammars/update_parser.kpeg"
 
 class Update
   require 'cgi'
+  require "#{File.dirname(__FILE__)}/../grammars/update_parser.kpeg"
   include MongoMapper::Document
   include MongoMapperExt::Filter
 

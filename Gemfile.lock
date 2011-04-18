@@ -39,8 +39,11 @@ GEM
     crack (0.1.8)
     culerity (0.2.15)
     database_cleaner (0.6.6)
+<<<<<<< HEAD
     exceptional (2.0.32)
       rack
+=======
+>>>>>>> 70cbb4da9abdd9d5a870f2dc067eedbca0f195c7
     execjs (0.1.1)
     factory_girl (1.3.3)
     faraday (0.5.7)
